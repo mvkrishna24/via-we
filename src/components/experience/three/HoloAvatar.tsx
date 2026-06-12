@@ -9,11 +9,10 @@ import { pointerState } from "./pointer";
 import { createGlowTexture } from "./textures";
 
 /**
- * Vijay's holographic presence — a deliberately stylized executive
- * "digital twin" rendered in the brand's triangulated-mesh language
- * (the texture inside the logo's lower curve). Premium abstraction,
- * not a cartoon: suit silhouette, composed posture, eye contact via
- * subtle head tracking.
+ * Vijay's holographic identity — executive digital twin with identifiable
+ * physical traits: wider square jaw, styled medium hair, short full beard,
+ * 3-piece suit silhouette with lapels and vest. Triangulated-mesh language,
+ * brand cyan palette, cursor-tracked head.
  */
 
 const SCENE_PRESENCE: Partial<Record<SceneId, { p: number; x: number; scale: number }>> = {
@@ -62,19 +61,34 @@ export function HoloAvatar({ scene }: { scene: SceneId }) {
   const glowTex = useMemo(() => createGlowTexture(), []);
 
   const parts = useMemo(() => {
-    const head = new THREE.SphereGeometry(0.33, 26, 22);
-    head.scale(0.94, 1.14, 1.0);
-    const neck = new THREE.CylinderGeometry(0.1, 0.14, 0.22, 14);
+    // Face — wider and squarer than a generic sphere (Vijay's strong jaw structure)
+    const head = new THREE.SphereGeometry(0.33, 28, 22);
+    head.scale(1.04, 1.07, 0.94);
+
+    // Hair — medium-length styled cap; upper hemisphere, flattened so it reads
+    // as a close crop rather than a tall dome
+    const hair = new THREE.SphereGeometry(0.365, 26, 18, 0, Math.PI * 2, 0, Math.PI * 0.5);
+    hair.scale(1.05, 0.7, 1.01);
+
+    // Beard — flattened sphere around the lower face / jaw (short full beard)
+    const beard = new THREE.SphereGeometry(0.3, 22, 14);
+    beard.scale(1.04, 0.44, 0.9);
+
+    const neck = new THREE.CylinderGeometry(0.12, 0.16, 0.22, 14);
+
+    // Broader shoulders — the 3-piece suit reads wider than a casual silhouette
     const shoulders = new THREE.SphereGeometry(0.62, 30, 18, 0, Math.PI * 2, 0, Math.PI / 2);
-    shoulders.scale(1.5, 1.0, 0.8);
-    const torso = new THREE.CylinderGeometry(0.6, 0.7, 0.78, 26, 4);
-    torso.scale(1.38, 1, 0.74);
-    return { head, neck, shoulders, torso };
+    shoulders.scale(1.6, 1.0, 0.82);
+
+    const torso = new THREE.CylinderGeometry(0.6, 0.7, 0.78, 28, 4);
+    torso.scale(1.42, 1, 0.76);
+
+    return { head, hair, beard, neck, shoulders, torso };
   }, []);
 
   const register = (mat: THREE.Material, base: number) => {
     mat.transparent = true;
-    mat.opacity = 0;
+    (mat as THREE.MeshBasicMaterial).opacity = 0;
     materials.current.push({ mat, base });
     return mat;
   };
@@ -83,22 +97,27 @@ export function HoloAvatar({ scene }: { scene: SceneId }) {
     materials.current = [];
     fresnels.current = [];
 
-    const inner = (geo: THREE.BufferGeometry, y: number) => {
+    const inner = (geo: THREE.BufferGeometry, y: number, color = "#0a2138") => {
       const mesh = new THREE.Mesh(
         geo,
-        register(new THREE.MeshBasicMaterial({ color: "#0a2138" }), 0.72),
+        register(new THREE.MeshBasicMaterial({ color }), 0.72),
       );
       mesh.position.y = y;
       mesh.renderOrder = 1;
       return mesh;
     };
 
-    const wire = (geo: THREE.BufferGeometry, y: number, base: number) => {
+    const wire = (
+      geo: THREE.BufferGeometry,
+      y: number,
+      base: number,
+      color = "#4ad3f3",
+    ) => {
       const seg = new THREE.LineSegments(
         new THREE.WireframeGeometry(geo),
         register(
           new THREE.LineBasicMaterial({
-            color: "#4ad3f3",
+            color,
             blending: THREE.AdditiveBlending,
             depthWrite: false,
           }),
@@ -120,10 +139,62 @@ export function HoloAvatar({ scene }: { scene: SceneId }) {
       return mesh;
     };
 
+    // ── Head pivot ──────────────────────────────────────────────────────────
     const headPivot = new THREE.Group();
     headPivot.position.y = 1.06;
+
+    // Base face
     headPivot.add(inner(parts.head, 0), wire(parts.head, 0, 0.16), rim(parts.head, 0));
 
+    // Hair cap — darker fill + sparser cyan lines so it reads as textured hair
+    const hairFill = new THREE.Mesh(
+      parts.hair,
+      register(new THREE.MeshBasicMaterial({ color: "#071a2c" }), 0.9),
+    );
+    hairFill.position.y = 0.17;
+    hairFill.renderOrder = 4;
+
+    const hairWire = new THREE.LineSegments(
+      new THREE.WireframeGeometry(parts.hair),
+      register(
+        new THREE.LineBasicMaterial({
+          color: "#28a2c8",
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+        }),
+        0.2,
+      ),
+    );
+    hairWire.position.y = 0.17;
+    hairWire.renderOrder = 5;
+
+    headPivot.add(hairFill, hairWire);
+
+    // Beard — slightly brighter wireframe to differentiate from face mesh
+    const beardFill = new THREE.Mesh(
+      parts.beard,
+      register(new THREE.MeshBasicMaterial({ color: "#0e2840" }), 0.74),
+    );
+    beardFill.position.y = -0.22;
+    beardFill.renderOrder = 4;
+
+    const beardWire = new THREE.LineSegments(
+      new THREE.WireframeGeometry(parts.beard),
+      register(
+        new THREE.LineBasicMaterial({
+          color: "#3ecde8",
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+        }),
+        0.34,
+      ),
+    );
+    beardWire.position.y = -0.22;
+    beardWire.renderOrder = 5;
+
+    headPivot.add(beardFill, beardWire);
+
+    // ── Body ─────────────────────────────────────────────────────────────────
     const body = new THREE.Group();
     body.add(
       inner(parts.neck, 0.82),
@@ -134,9 +205,46 @@ export function HoloAvatar({ scene }: { scene: SceneId }) {
       rim(parts.shoulders, 0.42),
     );
 
-    // tie: single cyan keyline giving the suit its focal point
+    // Suit lapels — V-shape that distinguishes a jacket from a plain torso
+    const makeLapel = (side: number) => {
+      const geo = new THREE.PlaneGeometry(0.13, 0.36, 2, 3);
+      const mesh = new THREE.Mesh(
+        geo,
+        register(
+          new THREE.MeshBasicMaterial({
+            color: "#4ad3f3",
+            blending: THREE.AdditiveBlending,
+            depthWrite: false,
+            side: THREE.DoubleSide,
+          }),
+          0.22,
+        ),
+      );
+      mesh.position.set(side * 0.17, 0.67, 0.5);
+      mesh.rotation.z = side * -0.38;
+      mesh.renderOrder = 4;
+      return mesh;
+    };
+    body.add(makeLapel(-1), makeLapel(1));
+
+    // Vest centre panel — the middle layer visible in a 3-piece suit
+    const vestPanel = new THREE.Mesh(
+      new THREE.PlaneGeometry(0.058, 0.48),
+      register(
+        new THREE.MeshBasicMaterial({
+          color: "#4ad3f3",
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+        }),
+        0.3,
+      ),
+    );
+    vestPanel.position.set(0, 0.5, 0.52);
+    body.add(vestPanel);
+
+    // Tie keyline — focal cyan accent
     const tie = new THREE.Mesh(
-      new THREE.PlaneGeometry(0.07, 0.46),
+      new THREE.PlaneGeometry(0.068, 0.36),
       register(
         new THREE.MeshBasicMaterial({
           color: "#4ad3f3",
@@ -146,8 +254,26 @@ export function HoloAvatar({ scene }: { scene: SceneId }) {
         0.55,
       ),
     );
-    tie.position.set(0, 0.52, 0.52);
+    tie.position.set(0, 0.46, 0.535);
     body.add(tie);
+
+    // Suit buttons — 3 glowing dots confirming the vest/jacket layer
+    for (let i = 0; i < 3; i++) {
+      const btn = new THREE.Mesh(
+        new THREE.SphereGeometry(0.025, 8, 6),
+        register(
+          new THREE.MeshBasicMaterial({
+            color: "#4ad3f3",
+            blending: THREE.AdditiveBlending,
+            depthWrite: false,
+          }),
+          0.7,
+        ),
+      );
+      btn.position.set(0, 0.63 - i * 0.17, 0.525);
+      btn.renderOrder = 5;
+      body.add(btn);
+    }
 
     return { headPivot, body };
   }, [parts]);
@@ -174,14 +300,14 @@ export function HoloAvatar({ scene }: { scene: SceneId }) {
     group.current.visible = p > 0.02;
     if (!group.current.visible) return;
 
-    for (const { mat, base } of materials.current) mat.opacity = base * p;
+    for (const { mat, base } of materials.current) (mat as THREE.MeshBasicMaterial).opacity = base * p;
     for (const m of fresnels.current) m.uniforms.uIntensity.value = p * 0.9;
 
     const t = state.clock.elapsedTime;
     // composed breathing
     const breathe = 1 + Math.sin(t * 1.05) * 0.0055;
     built.body.scale.y = breathe;
-    // eye contact: the head quietly follows the visitor's cursor
+    // head quietly follows the visitor's cursor
     if (headGroup.current) {
       const targetY = THREE.MathUtils.clamp(pointerState.x * 0.42, -0.32, 0.32);
       const targetX = THREE.MathUtils.clamp(-pointerState.y * 0.2, -0.14, 0.18);
@@ -215,7 +341,8 @@ export function HoloAvatar({ scene }: { scene: SceneId }) {
           blending={THREE.AdditiveBlending}
           depthWrite={false}
           ref={(m) => {
-            if (m && !materials.current.some((e) => e.mat === m)) materials.current.push({ mat: m, base: 0.5 });
+            if (m && !materials.current.some((e) => e.mat === m))
+              materials.current.push({ mat: m, base: 0.5 });
           }}
         />
       </mesh>
@@ -228,7 +355,8 @@ export function HoloAvatar({ scene }: { scene: SceneId }) {
           blending={THREE.AdditiveBlending}
           depthWrite={false}
           ref={(m) => {
-            if (m && !materials.current.some((e) => e.mat === m)) materials.current.push({ mat: m, base: 0.55 });
+            if (m && !materials.current.some((e) => e.mat === m))
+              materials.current.push({ mat: m, base: 0.55 });
           }}
         />
       </sprite>
