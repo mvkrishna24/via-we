@@ -1,0 +1,136 @@
+@import "tailwindcss";
+
+/*
+  Via-We design tokens — derived from the official brand guidelines:
+  upper curve  #1b4b77 / #3582ad · lower curve #3b8ec0 / #4ad3f3
+  Deep midnight surfaces taken from the guideline cover gradient.
+*/
+@theme {
+  --color-abyss: #050d17;
+  --color-midnight: #0a1d30;
+  --color-deep: #0e2a42;
+  --color-navy: #1b4b77;
+  --color-steel: #3582ad;
+  --color-azure: #3b8ec0;
+  --color-cyan: #4ad3f3;
+  --color-ice: #eaf4fb;
+  --color-silver: #c4d3df;
+  --color-mist: #8aa6ba;
+
+  --font-display: var(--font-fraunces), "Georgia", serif;
+  --font-sans: var(--font-roboto), system-ui, sans-serif;
+
+  --animate-marquee: marquee 36s linear infinite;
+  --animate-pulse-soft: pulse-soft 3.2s ease-in-out infinite;
+  --animate-caret: caret 1s steps(1) infinite;
+  --animate-float-y: float-y 7s ease-in-out infinite;
+
+  @keyframes marquee {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+  }
+  @keyframes pulse-soft {
+    0%, 100% { opacity: 0.55; }
+    50% { opacity: 1; }
+  }
+  @keyframes caret {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+  }
+  @keyframes float-y {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+  }
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--color-abyss);
+  color: var(--color-ice);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  overflow-x: clip;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--color-cyan) 35%, transparent);
+  color: var(--color-ice);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--color-steel) 45%, transparent) transparent;
+}
+
+/* Frosted glass panel — the core surface of the experience */
+@utility glass {
+  background: linear-gradient(
+    150deg,
+    color-mix(in srgb, var(--color-steel) 14%, transparent),
+    color-mix(in srgb, var(--color-midnight) 55%, transparent) 45%,
+    color-mix(in srgb, var(--color-navy) 18%, transparent)
+  );
+  backdrop-filter: blur(18px) saturate(1.25);
+  -webkit-backdrop-filter: blur(18px) saturate(1.25);
+  border: 1px solid color-mix(in srgb, var(--color-cyan) 16%, transparent);
+  box-shadow:
+    0 1px 0 0 color-mix(in srgb, var(--color-ice) 9%, transparent) inset,
+    0 24px 70px -28px rgb(0 0 0 / 0.85);
+}
+
+@utility glass-bright {
+  background: linear-gradient(
+    150deg,
+    color-mix(in srgb, var(--color-azure) 24%, transparent),
+    color-mix(in srgb, var(--color-deep) 62%, transparent)
+  );
+  backdrop-filter: blur(20px) saturate(1.3);
+  -webkit-backdrop-filter: blur(20px) saturate(1.3);
+  border: 1px solid color-mix(in srgb, var(--color-cyan) 30%, transparent);
+}
+
+/* Cyan keyline glow used on focused / active elements */
+@utility ring-glow {
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--color-cyan) 45%, transparent),
+    0 0 24px -4px color-mix(in srgb, var(--color-cyan) 55%, transparent);
+}
+
+@utility text-gradient-brand {
+  background: linear-gradient(100deg, var(--color-ice) 10%, var(--color-cyan) 55%, var(--color-steel) 95%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Thin horizon rule echoing the tagline lockup */
+@utility rule-aim {
+  position: relative;
+  &::before,
+  &::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--color-steel) 60%, transparent), transparent);
+  }
+  &::before { top: -7px; }
+  &::after { bottom: -7px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001s !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001s !important;
+  }
+}
