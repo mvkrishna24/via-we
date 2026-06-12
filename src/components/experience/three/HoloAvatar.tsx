@@ -16,7 +16,7 @@ import { createGlowTexture } from "./textures";
  */
 
 const SCENE_PRESENCE: Partial<Record<SceneId, { p: number; x: number; scale: number }>> = {
-  meet: { p: 1, x: 1.85, scale: 1 },
+  meet: { p: 1, x: 1.85, scale: 1.35 },
   persona: { p: 0.45, x: 2.9, scale: 0.82 },
   convert: { p: 1, x: -2.1, scale: 1 },
 };
@@ -28,7 +28,7 @@ const fresnelMat = (color: string) =>
     blending: THREE.AdditiveBlending,
     uniforms: {
       uColor: { value: new THREE.Color(color) },
-      uIntensity: { value: 1 },
+      uIntensity: { value: 1.8 },
     },
     vertexShader: /* glsl */ `
       varying float vFresnel;
@@ -60,23 +60,24 @@ export function HoloAvatar({ scene }: { scene: SceneId }) {
   // ── All geometry created once ─────────────────────────────────────────────
   const parts = useMemo(() => {
     // FACE — wide rectangular, Vijay's jaw is almost as wide as his cheekbones
+    // Vijay's face is wide and square — scale x much wider, y slightly shorter
     const face = new THREE.SphereGeometry(0.33, 32, 24);
-    face.scale(1.15, 1.02, 0.94);
+    face.scale(1.28, 0.92, 0.90);
 
-    // JAW PLANE — separate geometry that widens the lower third dramatically
+    // JAW PLANE — even wider to match near-rectangular lower face
     const jaw = new THREE.SphereGeometry(0.29, 26, 14);
-    jaw.scale(1.28, 0.52, 0.96);
+    jaw.scale(1.42, 0.50, 0.94);
 
-    // HAIR CAP — back & sides, dark fill
-    const hairCap = new THREE.SphereGeometry(0.365, 28, 20, 0, Math.PI * 2, 0, Math.PI * 0.52);
-    hairCap.scale(1.1, 0.72, 1.04);
+    // HAIR CAP — tight cap, only covers crown of head
+    const hairCap = new THREE.SphereGeometry(0.295, 26, 18, 0, Math.PI * 2, 0, Math.PI * 0.42);
+    hairCap.scale(1.12, 0.70, 1.06);
 
-    // HAIR FRONT VOLUME — the defining quiff/pompadour swept upward
-    const hairQuiff = new THREE.SphereGeometry(0.18, 18, 12, 0, Math.PI * 2, 0, Math.PI * 0.62);
-    hairQuiff.scale(1.05, 1.35, 0.92);
+    // HAIR FRONT VOLUME — compact quiff at front-top of head
+    const hairQuiff = new THREE.SphereGeometry(0.14, 16, 10, 0, Math.PI * 2, 0, Math.PI * 0.55);
+    hairQuiff.scale(1.0, 1.3, 0.9);
 
-    // BEARD BODY — wide coverage across cheeks, jaw, chin
-    const beardBody = new THREE.SphereGeometry(0.32, 26, 16);
+    // BEARD BODY — low-poly so wireframe texture reads at screen scale
+    const beardBody = new THREE.SphereGeometry(0.32, 10, 7);
     beardBody.scale(1.22, 0.52, 0.96);
 
     // BEARD CHIN — fuller coverage at the chin tip
@@ -87,8 +88,8 @@ export function HoloAvatar({ scene }: { scene: SceneId }) {
     const mustache = new THREE.SphereGeometry(0.115, 14, 10);
     mustache.scale(1.28, 0.3, 0.78);
 
-    // BROW — thick horizontal bar (key facial identifier); cloned L/R
-    const brow = new THREE.CylinderGeometry(0.016, 0.02, 0.155, 6);
+    // BROW — thicker so it reads at screen scale
+    const brow = new THREE.CylinderGeometry(0.024, 0.03, 0.18, 8);
 
     // EAR — flattened ellipsoid
     const ear = new THREE.SphereGeometry(0.092, 10, 8);
@@ -119,7 +120,7 @@ export function HoloAvatar({ scene }: { scene: SceneId }) {
   // ── Material registration: tracks every material for opacity animation ────
   const reg = (mat: THREE.Material, base: number) => {
     mat.transparent = true;
-    (mat as THREE.MeshBasicMaterial).opacity = 0;
+    (mat as THREE.MeshBasicMaterial).opacity = base; // set immediately for debugging
     materials.current.push({ mat, base });
     return mat;
   };
@@ -144,7 +145,7 @@ export function HoloAvatar({ scene }: { scene: SceneId }) {
       return m;
     };
     const rimMesh = (geo: THREE.BufferGeometry) => {
-      const mat = fresnelMat("#3b8ec0");
+      const mat = fresnelMat("#5ccced");
       fresnels.current.push(mat);
       const m = new THREE.Mesh(geo, mat);
       m.scale.setScalar(1.035);
@@ -160,78 +161,92 @@ export function HoloAvatar({ scene }: { scene: SceneId }) {
     const headPivot = new THREE.Group();
     headPivot.position.y = 1.06;
 
-    // Base face
-    headPivot.add(fill(parts.face), wires(parts.face, "#4ad3f3", 0.2), rimMesh(parts.face));
+    headPivot.add(fill(parts.face, "#040d18", 0.96), wires(parts.face, "#78e8ff", 0.16), rimMesh(parts.face));
 
     // Jaw — separate wider slab at lower face
-    const jawFill = placed(fill(parts.jaw, "#091f35", 0.78), 0, -0.19, 0.01);
+    const jawFill = placed(fill(parts.jaw, "#091f35", 0.90), 0, -0.19, 0.01);
     jawFill.renderOrder = 2;
-    const jawWire = placed(wires(parts.jaw, "#5dd8f5", 0.26), 0, -0.19, 0.01);
+    const jawWire = placed(wires(parts.jaw, "#68e8ff", 0.18), 0, -0.19, 0.01);
     headPivot.add(jawFill, jawWire);
 
-    // Ears — width landmark, helps sell the face width
+    // Ears — width landmark
     for (const side of [-1, 1] as const) {
-      const ef = fill(parts.ear, "#0a2138", 0.62);
+      const ef = fill(parts.ear, "#0a2138", 0.72);
       ef.position.set(side * 0.39, 0.02, 0.04);
-      const ew = wires(parts.ear, "#38c8e0", 0.16);
+      const ew = wires(parts.ear, "#44d4ec", 0.14);
       ew.position.set(side * 0.39, 0.02, 0.04);
       headPivot.add(ef, ew);
     }
 
-    // ── BROWS — the single most powerful facial identifier ─────────────────
+    // ── BROWS — thin glowing bars, depthTest:false ───────────────────────────
     for (const side of [-1, 1] as const) {
-      const bf = new THREE.Mesh(
-        parts.brow,
-        reg(new THREE.MeshBasicMaterial({ color: "#060d1c" }), 0.94),
+      const browGeo = new THREE.BoxGeometry(0.20, 0.022, 0.012);
+      const bm = new THREE.Mesh(
+        browGeo,
+        reg(new THREE.MeshBasicMaterial({
+          color: "#aaeeff",
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+          depthTest: false,
+        }), 0.90),
       );
-      bf.position.set(side * 0.118, 0.122, 0.284);
-      bf.rotation.set(-0.28, side * -0.1, Math.PI / 2);
-      bf.renderOrder = 7;
+      bm.position.set(side * 0.126, 0.138, 0.285);
+      // inner end higher, outer end lower = natural arch; wider separation
+      bm.rotation.set(-0.12, side * -0.10, side * -0.18);
+      bm.renderOrder = 8;
+      headPivot.add(bm);
+    }
 
-      const bw = new THREE.LineSegments(
-        new THREE.WireframeGeometry(parts.brow),
-        reg(new THREE.LineBasicMaterial({ color: "#62dffb", blending: THREE.AdditiveBlending, depthWrite: false }), 0.78),
+    // ── EYES — sized to read at screen scale, depthTest:false ─────────────────
+    for (const side of [-1, 1] as const) {
+      const eye = new THREE.Mesh(
+        new THREE.SphereGeometry(0.062, 10, 8),
+        reg(new THREE.MeshBasicMaterial({
+          color: "#c8f8ff",
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+          depthTest: false,
+        }), 0.88),
       );
-      bw.position.copy(bf.position);
-      bw.rotation.copy(bf.rotation);
-      bw.renderOrder = 8;
-      headPivot.add(bf, bw);
+      eye.position.set(side * 0.108, 0.055, 0.305);
+      eye.renderOrder = 9;
+      headPivot.add(eye);
     }
 
     // ── HAIR ───────────────────────────────────────────────────────────────
-    // Cap — covers top + back of head
-    const hcF = placed(fill(parts.hairCap, "#060c1a", 0.94), 0, 0.17, 0);
+    // Cap — covers top + back of head; darker than face fill = reads as hair
+    const hcF = placed(fill(parts.hairCap, "#040a14", 0.98), 0, 0.10, 0);
     hcF.renderOrder = 5;
-    const hcW = placed(wires(parts.hairCap, "#1882ac", 0.17), 0, 0.17, 0);
+    const hcW = placed(wires(parts.hairCap, "#38bcd8", 0.28), 0, 0.10, 0);
     hcW.renderOrder = 6;
     headPivot.add(hcF, hcW);
 
-    // Quiff — the front upward volume, key styling cue
+    // Quiff — raised higher and further forward to break the head silhouette
     const hqF = new THREE.Mesh(
       parts.hairQuiff,
-      reg(new THREE.MeshBasicMaterial({ color: "#060c1a" }), 0.9),
+      reg(new THREE.MeshBasicMaterial({ color: "#040a14" }), 0.98),
     );
-    hqF.position.set(0, 0.27, 0.16);
+    hqF.position.set(0, 0.30, 0.14);
     hqF.renderOrder = 6;
     const hqW = new THREE.LineSegments(
       new THREE.WireframeGeometry(parts.hairQuiff),
-      reg(new THREE.LineBasicMaterial({ color: "#1882ac", blending: THREE.AdditiveBlending, depthWrite: false }), 0.24),
+      reg(new THREE.LineBasicMaterial({ color: "#38bcd8", blending: THREE.AdditiveBlending, depthWrite: false }), 0.32),
     );
     hqW.position.copy(hqF.position);
     hqW.renderOrder = 7;
     headPivot.add(hqF, hqW);
 
     // ── BEARD ──────────────────────────────────────────────────────────────
-    // Body — spans cheeks, jaw, chin with wide coverage
+    // Body — darker fill than face creates visible beard region contrast
     const bbF = new THREE.Mesh(
       parts.beardBody,
-      reg(new THREE.MeshBasicMaterial({ color: "#0b2035" }), 0.78),
+      reg(new THREE.MeshBasicMaterial({ color: "#060f1e" }), 0.96),
     );
     bbF.position.set(0, -0.21, 0.02);
     bbF.renderOrder = 4;
     const bbW = new THREE.LineSegments(
       new THREE.WireframeGeometry(parts.beardBody),
-      reg(new THREE.LineBasicMaterial({ color: "#3ecde8", blending: THREE.AdditiveBlending, depthWrite: false }), 0.42),
+      reg(new THREE.LineBasicMaterial({ color: "#6ef4ff", blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false }), 1.0),
     );
     bbW.position.copy(bbF.position);
     bbW.renderOrder = 5;
@@ -240,13 +255,13 @@ export function HoloAvatar({ scene }: { scene: SceneId }) {
     // Chin — extra fullness below jaw center
     const bcF = new THREE.Mesh(
       parts.beardChin,
-      reg(new THREE.MeshBasicMaterial({ color: "#0c2438" }), 0.74),
+      reg(new THREE.MeshBasicMaterial({ color: "#0c2438" }), 0.88),
     );
     bcF.position.set(0, -0.3, 0.14);
     bcF.renderOrder = 5;
     const bcW = new THREE.LineSegments(
       new THREE.WireframeGeometry(parts.beardChin),
-      reg(new THREE.LineBasicMaterial({ color: "#38cce4", blending: THREE.AdditiveBlending, depthWrite: false }), 0.38),
+      reg(new THREE.LineBasicMaterial({ color: "#4cdaf0", blending: THREE.AdditiveBlending, depthWrite: false }), 0.75),
     );
     bcW.position.copy(bcF.position);
     bcW.renderOrder = 6;
@@ -255,13 +270,13 @@ export function HoloAvatar({ scene }: { scene: SceneId }) {
     // Mustache — tight horizontal band above upper lip
     const muF = new THREE.Mesh(
       parts.mustache,
-      reg(new THREE.MeshBasicMaterial({ color: "#0c2438" }), 0.76),
+      reg(new THREE.MeshBasicMaterial({ color: "#0c2438" }), 0.88),
     );
     muF.position.set(0, -0.09, 0.287);
     muF.renderOrder = 5;
     const muW = new THREE.LineSegments(
       new THREE.WireframeGeometry(parts.mustache),
-      reg(new THREE.LineBasicMaterial({ color: "#36cae2", blending: THREE.AdditiveBlending, depthWrite: false }), 0.4),
+      reg(new THREE.LineBasicMaterial({ color: "#4adaf0", blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false }), 0.82),
     );
     muW.position.copy(muF.position);
     muW.renderOrder = 6;
@@ -391,7 +406,7 @@ export function HoloAvatar({ scene }: { scene: SceneId }) {
     if (!group.current.visible) return;
 
     for (const { mat, base } of materials.current) (mat as THREE.MeshBasicMaterial).opacity = base * p;
-    for (const m of fresnels.current) m.uniforms.uIntensity.value = p * 0.9;
+    for (const m of fresnels.current) m.uniforms.uIntensity.value = p * 1.8;
 
     const t = state.clock.elapsedTime;
     built.body.scale.y = 1 + Math.sin(t * 1.05) * 0.0055; // composed breathing
